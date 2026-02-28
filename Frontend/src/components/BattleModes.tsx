@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Code, Users, Scale, Brain, ChevronRight, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const modes = [
   {
@@ -102,6 +103,7 @@ const modes = [
 ];
 
 const BattleModes = () => {
+  const navigate = useNavigate();
   const [activeId, setActiveId] = useState(modes[2].id); // Default to Debate
 
   const activeMode = modes.find(m => m.id === activeId)!;
@@ -128,8 +130,8 @@ const BattleModes = () => {
                   key={mode.id}
                   onClick={() => setActiveId(mode.id)}
                   className={`w-full text-left p-6 rounded-2xl transition-all duration-300 border flex items-center justify-between group ${isActive
-                      ? "bg-white/5 border-neon-cyan/40 shadow-[0_0_30px_rgba(20,184,166,0.1)]"
-                      : "bg-transparent border-white/5 hover:border-white/10"
+                    ? "bg-white/5 border-neon-cyan/40 shadow-[0_0_30px_rgba(20,184,166,0.1)]"
+                    : "bg-transparent border-white/5 hover:border-white/10"
                     }`}
                 >
                   <div className="flex items-center gap-5">
@@ -183,6 +185,11 @@ const BattleModes = () => {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      if (activeId === "coding") {
+                        navigate("/arena/coding");
+                      }
+                    }}
                     className="btn-neon px-12"
                   >
                     Enter Arena
