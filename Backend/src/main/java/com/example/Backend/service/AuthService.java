@@ -68,7 +68,10 @@ public class AuthService {
 
         // ── Step 2: Upsert into PostgreSQL ─────────────────────────────────────
         final String finalProvider = provider;
-        final String finalDisplayName = displayName;
+        // Email/password users may not have a display name in Firebase — fallback to email prefix
+        final String finalDisplayName = (displayName != null && !displayName.isBlank())
+                ? displayName
+                : (email != null ? email.split("@")[0] : uid.substring(0, 8));
         final String finalPhotoUrl = photoUrl;
 
         User user = userRepository.findByFirebaseUid(uid)

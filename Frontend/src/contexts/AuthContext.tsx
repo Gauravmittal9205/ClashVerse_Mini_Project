@@ -18,7 +18,7 @@ import {
 import { auth, googleProvider, githubProvider } from "../lib/firebase";
 
 // ─── Backend URL ───────────────────────────────────────────────────────────────
-const BACKEND_URL = "http://localhost:8080";
+const BACKEND_URL = "http://localhost:8081";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
