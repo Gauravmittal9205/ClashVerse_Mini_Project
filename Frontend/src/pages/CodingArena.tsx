@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
@@ -14,7 +17,9 @@ import {
     Star,
     Users2,
     Lock,
-    Code
+    Code,
+    XCircle,
+    CheckCircle
 } from "lucide-react";
 
 interface ArenaMode {
@@ -90,8 +95,125 @@ const arenaModes: ArenaMode[] = [
 ];
 
 const CodingArena = () => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
     const [viewedModeId, setViewedModeId] = useState<string>(arenaModes[0].id);
     const [matchmakingModeId, setMatchmakingModeId] = useState<string | null>(null);
+    const [isMatchmaking, setIsMatchmaking] = useState(false);
+    const [searchingTime, setSearchingTime] = useState(0);
+    const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'found' | 'failed'>('idle');
+    const [abortController, setAbortController] = useState<AbortController | null>(null);
+    const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const handleStartMatchmaking = async () => {
+        if (!user) {
+            toast.error("Please login to start a battle!");
+            return;
+        }
+
+        setIsMatchmaking(true);
+        setSearchStatus('searching');
+        setSearchingTime(0);
+
+        const ctrl = new AbortController();
+        setAbortController(ctrl);
+
+        // Timer for searching effect
+        let time = 0;
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = setInterval(() => {
+            time += 1;
+            setSearchingTime(time);
+            if (time >= 30) {
+                clearInterval(countdownTimerRef.current!);
+                countdownTimerRef.current = null;
+                ctrl.abort();
+                setSearchStatus('failed');
+            }
+        }, 1000);
+        const timer = countdownTimerRef.current;
+
+        try {
+            // API call to initiate battle
+            const response = await fetch(`http://localhost:8081/api/arena/initiate?firebaseUid=${user.uid}`, {
+                method: "POST",
+                signal: ctrl.signal
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                if (data.status === "WAITING") {
+                    // Start polling for opponent match
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const pollRes = await fetch(`http://localhost:8081/api/arena/battle/${data.battleId}`, {
+                                signal: ctrl.signal
+                            });
+                            if (pollRes.ok) {
+                                const pollData = await pollRes.json();
+                                if (pollData.status === "ACTIVE") {
+                                    clearInterval(pollInterval);
+                                    clearInterval(timer);
+                                    setSearchStatus('found');
+                                    setTimeout(() => {
+                                        setIsMatchmaking(false);
+                                        setSearchStatus('idle');
+                                        setMatchmakingModeId(null);
+                                        toast.success("Match Found! Entering Arena...");
+                                        navigate(`/arena/battle/${data.battleId}`);
+                                    }, 2000);
+                                }
+                            }
+                        } catch (e: any) {
+                            if (e.name === 'AbortError') {
+                                clearInterval(pollInterval);
+                            }
+                        }
+                    }, 2000);
+
+                    // Stop polling if aborted
+                    ctrl.signal.addEventListener('abort', () => {
+                        clearInterval(pollInterval);
+                    });
+
+                } else {
+                    // Match found instantly (Joined an existing WAITING battle)
+                    clearInterval(timer);
+                    setSearchStatus('found');
+                    setTimeout(() => {
+                        setIsMatchmaking(false);
+                        setSearchStatus('idle');
+                        setMatchmakingModeId(null);
+                        toast.success("Match Found! Entering Arena...");
+                        navigate(`/arena/battle/${data.battleId}`);
+                    }, 2000);
+                }
+            } else {
+                clearInterval(timer);
+                setSearchStatus('failed');
+            }
+        } catch (error: any) {
+            clearInterval(timer);
+            if (error.name !== 'AbortError') {
+                setSearchStatus('failed');
+                toast.error("Could not connect to server.");
+            }
+        }
+    };
+
+    const handleCancelMatchmaking = () => {
+        if (abortController) {
+            abortController.abort();
+        }
+        if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+        }
+        setSearchingTime(0);
+        setIsMatchmaking(false);
+        setSearchStatus('idle');
+    };
 
     return (
         <div className="min-h-screen bg-background relative overflow-hidden">
@@ -404,11 +526,118 @@ const CodingArena = () => {
                                 </div>
                             </div>
 
-                            <button className="w-full btn-neon py-5 flex items-center justify-center gap-4 group">
-                                <Zap className="w-5 h-5 fill-current animate-pulse" />
-                                <span className="font-black text-lg tracking-[0.3em]">START MATCHMAKING</span>
+                            <button
+                                onClick={handleStartMatchmaking}
+                                disabled={isMatchmaking}
+                                className="w-full btn-neon py-5 flex items-center justify-center gap-4 group disabled:opacity-50"
+                            >
+                                <Zap className={`w-5 h-5 fill-current ${isMatchmaking ? 'animate-spin' : 'animate-pulse'}`} />
+                                <span className="font-black text-lg tracking-[0.3em]">
+                                    {isMatchmaking ? "MATCHMAKING..." : "START MATCHMAKING"}
+                                </span>
                             </button>
                         </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Matchmaking Overlay */}
+            <AnimatePresence>
+                {isMatchmaking && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+                    >
+                        <div className="max-w-4xl w-full flex flex-col md:flex-row items-center justify-center gap-12 md:gap-24 relative z-10">
+                            {/* Left Side: User Profile */}
+                            <div className="flex flex-col items-center">
+                                <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-primary/50 overflow-hidden mb-6 shadow-[0_0_30px_rgba(139,92,246,0.3)] bg-black/50">
+                                    <img src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || 'user'}`} alt="User" className="w-full h-full object-cover" />
+                                </div>
+                                <h3 className="text-xl md:text-2xl font-display font-black uppercase tracking-wider">{user?.displayName || "Player 1"}</h3>
+                                <div className="mt-2 text-primary font-mono text-sm tracking-widest">RANK: ELITE</div>
+                            </div>
+
+                            {/* Middle: VS or Status */}
+                            <div className="flex flex-col items-center justify-center min-w-[120px]">
+                                {searchStatus === 'searching' ? (
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/50 animate-spin mb-4" />
+                                        <span className="font-mono text-primary animate-pulse tracking-widest uppercase text-sm font-bold">VS</span>
+                                    </div>
+                                ) : searchStatus === 'failed' ? (
+                                    <div className="flex flex-col items-center">
+                                        <XCircle className="w-16 h-16 text-red-500 mb-4" />
+                                        <span className="font-mono text-red-500 tracking-widest uppercase text-sm font-bold text-center">Timeout</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center">
+                                        <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+                                        <span className="font-mono text-green-500 tracking-widest uppercase text-sm font-bold text-center">Match Found</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right Side: Opponent Placeholder / Searching */}
+                            <div className="flex flex-col items-center">
+                                <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-dashed border-secondary/50 overflow-hidden mb-6 flex items-center justify-center relative bg-secondary/5">
+                                    {searchStatus === 'searching' && (
+                                        <div className="absolute inset-0 bg-gradient-to-tr from-secondary/10 to-transparent animate-pulse" />
+                                    )}
+                                    {searchStatus === 'failed' ? (
+                                        <Users className="w-12 h-12 text-muted-foreground opacity-30" />
+                                    ) : searchStatus === 'found' ? (
+                                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=opponent`} alt="Opponent" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-secondary/50 font-black text-4xl animate-pulse">?</span>
+                                    )}
+                                </div>
+                                <h3 className="text-xl md:text-2xl font-display font-black uppercase tracking-wider text-muted-foreground">
+                                    {searchStatus === 'found' ? "Opponent" : "Searching..."}
+                                </h3>
+                                <div className="mt-2 text-secondary/50 font-mono text-sm tracking-widest">
+                                    {searchStatus === 'searching' ? `TIME: ${searchingTime}S / 30S` : searchStatus === 'failed' ? "NO MATCH" : "MATCHED!"}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bottom Actions */}
+                        <div className="absolute bottom-16 flex flex-col items-center gap-6 w-full">
+                            {searchStatus === 'searching' ? (
+                                <button
+                                    onClick={handleCancelMatchmaking}
+                                    className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-red-500 transition-colors"
+                                >
+                                    [ Cancel Request ]
+                                </button>
+                            ) : searchStatus === 'failed' ? (
+                                <div className="flex flex-col items-center gap-6 z-20">
+                                    <h2 className="text-2xl font-display font-black uppercase tracking-widest text-white">No Match Found</h2>
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={handleStartMatchmaking}
+                                            className="btn-neon px-8 py-3 flex items-center gap-2 group"
+                                        >
+                                            <Zap className="w-4 h-4 fill-current group-hover:animate-pulse" />
+                                            <span>TRY AGAIN</span>
+                                        </button>
+                                        <button
+                                            onClick={handleCancelMatchmaking}
+                                            className="px-8 py-3 text-sm font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-white transition-colors border border-white/10 rounded-lg hover:bg-white/5"
+                                        >
+                                            BACK TO ARENA
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {/* Background Particles/Effects */}
+                        <div className="absolute inset-0 pointer-events-none overflow-hidden flex justify-center items-center opacity-30">
+                            <div className="absolute w-[800px] h-[800px] bg-primary/20 rounded-full blur-[100px] -z-10" />
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
