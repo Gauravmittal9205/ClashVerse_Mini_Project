@@ -34,3 +34,15 @@ build/
 
 # Firebase
 src/main/resources/serviceAccountKey.json
+
+# Logs & output
+*.log
+*.log.*
+*log*.txt
+*error*.txt
+*latest*.txt
+build_*.txt
+compile_*.txt
+run_*.txt
+tree*.txt
+last_*.txt

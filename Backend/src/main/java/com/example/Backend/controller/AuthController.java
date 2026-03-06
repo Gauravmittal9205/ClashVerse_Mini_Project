@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*") // Allow frontend dev requests
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
@@ -46,7 +47,7 @@ public class AuthController {
             UserResponse response = authService.syncUser(request.getIdToken());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Auth sync failed: {}", e.getMessage());
+            log.error("Auth sync failed: {} - {}", e.getClass().getSimpleName(), e.getMessage());
             return ResponseEntity.status(401).body("Token verification failed: " + e.getMessage());
         }
     }

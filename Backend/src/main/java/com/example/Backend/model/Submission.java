@@ -30,6 +30,9 @@ public class Submission {
     
     private String memory; // e.g. "24MB"
 
+    @Column(columnDefinition = "TEXT")
+    private String resultJson; // JSON representation of JudgeResult
+
     private Instant submittedAt;
 
     public Submission() {}
@@ -63,6 +66,9 @@ public class Submission {
 
     public String getMemory() { return memory; }
     public void setMemory(String memory) { this.memory = memory; }
+
+    public String getResultJson() { return resultJson; }
+    public void setResultJson(String resultJson) { this.resultJson = resultJson; }
 
     public Instant getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(Instant submittedAt) { this.submittedAt = submittedAt; }
