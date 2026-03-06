@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import CodingArena from "./pages/CodingArena";
 import BattleRoom from "./pages/BattleRoom";
+import MultiplayerRoom from "./pages/MultiplayerRoom";
 import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/arena/coding" element={<CodingArena />} />
           <Route path="/arena/battle/:battleId" element={<BattleRoom />} />
+          <Route path="/arena/multiplayer/:roomCode" element={<MultiplayerRoom />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
