@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import CodingArena from "./pages/CodingArena";
+import DebateArena from "./pages/DebateArena";
+import DebateRoom from "./pages/DebateRoom";
 import BattleRoom from "./pages/BattleRoom";
 import Profile from "./pages/Profile";
 
@@ -21,6 +23,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/arena/coding" element={<CodingArena />} />
+          <Route path="/arena/debate" element={<DebateArena />} />
+          <Route path="/arena/debate/:roomId" element={<DebateRoom />} />
           <Route path="/arena/battle/:battleId" element={<BattleRoom />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
