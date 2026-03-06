@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import CodingArena from "./pages/CodingArena";
 import BattleRoom from "./pages/BattleRoom";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/arena/coding" element={<CodingArena />} />
           <Route path="/arena/battle/:battleId" element={<BattleRoom />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
