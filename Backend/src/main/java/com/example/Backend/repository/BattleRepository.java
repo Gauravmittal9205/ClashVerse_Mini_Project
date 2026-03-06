@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface BattleRepository extends JpaRepository<Battle, Long> {
     List<Battle> findByStatusAndPlayer2IsNull(String status);
+
+    long countByStatus(String status);
 }

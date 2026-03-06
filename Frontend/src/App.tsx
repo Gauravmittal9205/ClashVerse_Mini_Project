@@ -9,6 +9,7 @@ import CodingArena from "./pages/CodingArena";
 import DebateArena from "./pages/DebateArena";
 import DebateRoom from "./pages/DebateRoom";
 import BattleRoom from "./pages/BattleRoom";
+import MultiplayerRoom from "./pages/MultiplayerRoom";
 import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/arena/debate" element={<DebateArena />} />
           <Route path="/arena/debate/:roomId" element={<DebateRoom />} />
           <Route path="/arena/battle/:battleId" element={<BattleRoom />} />
+          <Route path="/arena/multiplayer/:roomCode" element={<MultiplayerRoom />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

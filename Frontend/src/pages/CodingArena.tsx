@@ -106,6 +106,38 @@ const CodingArena = () => {
     const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const location = useLocation();
 
+    // Custom Room States
+    const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+    const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+    const [joinRoomCode, setJoinRoomCode] = useState('');
+    const [roomConfig, setRoomConfig] = useState({ users: 2, difficulty: 'Medium' });
+    const [roomCode, setRoomCode] = useState<string | null>(null);
+
+    const [arenaStats, setArenaStats] = useState({
+        totalBattles: 492450,
+        activeBattles: 1240,
+        mostPlayed: "1v1 LIVE DUEL"
+    });
+
+    // Fetch live arena stats
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await fetch('http://localhost:8081/api/arena/stats');
+                if (res.ok) {
+                    const data = await res.json();
+                    setArenaStats(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch arena stats:", error);
+            }
+        };
+
+        fetchStats(); // Initial fetch
+        const interval = setInterval(fetchStats, 3000); // Poll every 3 seconds
+        return () => clearInterval(interval);
+    }, []);
+
     // Auto-trigger matchmaking if we came from a 'Rematch' request
     useEffect(() => {
         if (location.state?.autoMatchmake && user) {
@@ -311,8 +343,8 @@ const CodingArena = () => {
                                 <Users className="w-5 h-5 text-neon-blue" />
                             </div>
                             <div className="text-left">
-                                <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Live Combatants</span>
-                                <span className="text-lg font-display font-black text-foreground tabular-nums tracking-wider text-neon-blue">1,240 ONLINE</span>
+                                <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Active Battles</span>
+                                <span className="text-lg font-display font-black text-foreground tabular-nums tracking-wider text-neon-blue">{arenaStats?.activeBattles?.toLocaleString() || '1,240'} LIVE</span>
                             </div>
                         </div>
 
@@ -321,8 +353,8 @@ const CodingArena = () => {
                                 <Trophy className="w-5 h-5 text-yellow-400" />
                             </div>
                             <div className="text-left">
-                                <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Finalized Clashes</span>
-                                <span className="text-lg font-display font-black text-foreground tabular-nums tracking-wider">492,450 TOTAL</span>
+                                <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total Battles</span>
+                                <span className="text-lg font-display font-black text-foreground tabular-nums tracking-wider">{arenaStats?.totalBattles?.toLocaleString() || '492,450'}</span>
                             </div>
                         </div>
 
@@ -331,8 +363,8 @@ const CodingArena = () => {
                                 <Flame className="w-5 h-5 text-orange-500" />
                             </div>
                             <div className="text-left">
-                                <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Active Multiplier</span>
-                                <span className="text-lg font-display font-black text-orange-500 tabular-nums tracking-wider">1.5X BOOST</span>
+                                <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Most Played</span>
+                                <span className="text-[15px] font-display font-black text-orange-500 tabular-nums tracking-wider">{arenaStats?.mostPlayed || '1v1 LIVE DUEL'}</span>
                             </div>
                         </div>
                     </div>
@@ -492,12 +524,21 @@ const CodingArena = () => {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                     >
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setMatchmakingModeId(null)} />
+                        <div
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                            onClick={() => {
+                                setMatchmakingModeId(null);
+                                setIsCreatingRoom(false);
+                                setIsJoiningRoom(false);
+                                setJoinRoomCode('');
+                                setRoomCode(null);
+                            }}
+                        />
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-2xl glass-card border-white/10 p-8 md:p-12 overflow-hidden shadow-glow-neon"
+                            className="relative w-full max-w-2xl max-h-[85vh] glass-card border-white/10 p-8 md:p-12 overflow-y-auto overflow-x-hidden custom-scrollbar shadow-glow-neon"
                         >
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-secondary to-primary" />
 
@@ -514,34 +555,53 @@ const CodingArena = () => {
                                         {arenaModes.find(m => m.id === matchmakingModeId)?.title}
                                     </h2>
                                 </div>
-                                <button onClick={() => setMatchmakingModeId(null)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                                <button
+                                    onClick={() => {
+                                        setMatchmakingModeId(null);
+                                        setIsCreatingRoom(false);
+                                        setIsJoiningRoom(false);
+                                        setJoinRoomCode('');
+                                        setRoomCode(null);
+                                    }}
+                                    className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                                >
                                     <Lock className="w-5 h-5 text-muted-foreground" />
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                                <div className="space-y-6">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-white/5 pb-2">Select Topic</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {["Arrays", "DP", "Graph", "String", "Tree", "Recursion"].map(topic => (
-                                            <button key={topic} className="p-3 rounded-lg border border-white/5 bg-white/5 hover:border-primary/50 text-[11px] font-bold uppercase transition-all tracking-wide">
-                                                {topic}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                            <div className="mb-12 bg-black/40 border border-white/5 rounded-2xl p-6 lg:p-8 relative overflow-hidden">
+                                {/* Background Glow */}
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
 
-                                <div className="space-y-6">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-white/5 pb-2">Complexity Level</h4>
-                                    <div className="space-y-3">
-                                        {["Initiate (Easy)", "Elite (Medium)", "Grandmaster (Hard)"].map(level => (
-                                            <button key={level} className="w-full p-4 rounded-lg border border-white/5 bg-white/5 hover:border-secondary/50 text-xs font-bold uppercase transition-all text-left flex justify-between items-center group">
-                                                {level}
-                                                <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                <h4 className="text-[11px] font-black w-full uppercase tracking-[0.2em] text-primary border-b border-primary/20 pb-4 mb-6 flex items-center gap-3">
+                                    <Swords className="w-4 h-4" /> BATTLE DIRECTIVES
+                                </h4>
+                                <ul className="space-y-5 relative z-10">
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                                            <span className="text-[10px] font-black text-primary">01</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-white/80 uppercase tracking-wider leading-relaxed">
+                                            Solve the programming challenge faster than your opponent. The first to successfully submit wins.
+                                        </p>
+                                    </li>
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                                            <span className="text-[10px] font-black text-primary">02</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-white/80 uppercase tracking-wider leading-relaxed">
+                                            Your code must pass all hidden test cases. Partial or incorrect solutions will be rejected.
+                                        </p>
+                                    </li>
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                            <span className="text-[10px] font-black text-red-500">03</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-red-400 uppercase tracking-wider leading-relaxed">
+                                            Do not refresh or leave the arena during an active battle. Doing so counts as an immediate forfeit.
+                                        </p>
+                                    </li>
+                                </ul>
                             </div>
 
                             <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg mb-10 flex items-start gap-4">
@@ -554,16 +614,188 @@ const CodingArena = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleStartMatchmaking}
-                                disabled={isMatchmaking}
-                                className="w-full btn-neon py-5 flex items-center justify-center gap-4 group disabled:opacity-50"
-                            >
-                                <Zap className={`w-5 h-5 fill-current ${isMatchmaking ? 'animate-spin' : 'animate-pulse'}`} />
-                                <span className="font-black text-lg tracking-[0.3em]">
-                                    {isMatchmaking ? "MATCHMAKING..." : "START MATCHMAKING"}
-                                </span>
-                            </button>
+                            {isCreatingRoom ? (
+                                <div className="space-y-6">
+                                    {!roomCode ? (
+                                        <div className="bg-black/40 border border-white/5 rounded-2xl p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
+                                            <div className="flex items-center justify-between border-b border-primary/20 pb-4 mb-6">
+                                                <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">
+                                                    Configure Battle Room
+                                                </h4>
+                                                <button
+                                                    onClick={() => setIsCreatingRoom(false)}
+                                                    className="text-[10px] font-black text-muted-foreground hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1"
+                                                >
+                                                    ← Back
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-5">
+                                                <div>
+                                                    <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider mb-2">Max Combatants</label>
+                                                    <div className="flex gap-3">
+                                                        {[2, 3, 4, 5].map((num) => (
+                                                            <button
+                                                                key={num}
+                                                                onClick={() => setRoomConfig({ ...roomConfig, users: num })}
+                                                                className={`flex-1 py-3 rounded-lg border font-black ${roomConfig.users === num
+                                                                    ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(139,92,246,0.3)]'
+                                                                    : 'bg-black/50 border-white/10 text-muted-foreground hover:border-white/30'
+                                                                    } transition-all`}
+                                                            >
+                                                                {num} <span className="text-xs font-bold opacity-70">Players</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider mb-2">Challenge Difficulty</label>
+                                                    <div className="flex gap-3">
+                                                        {['Easy', 'Medium', 'Hard'].map((diff) => (
+                                                            <button
+                                                                key={diff}
+                                                                onClick={() => setRoomConfig({ ...roomConfig, difficulty: diff })}
+                                                                className={`flex-1 py-3 rounded-lg border font-black uppercase text-xs tracking-wider ${roomConfig.difficulty === diff
+                                                                    ? (diff === 'Easy' ? 'bg-green-500/20 border-green-500 text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
+                                                                        diff === 'Medium' ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' :
+                                                                            'bg-red-500/20 border-red-500 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]')
+                                                                    : 'bg-black/50 border-white/10 text-muted-foreground hover:border-white/30'
+                                                                    } transition-all`}
+                                                            >
+                                                                {diff}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    // Generate 8-digit random code
+                                                    const code = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                    setRoomCode(code);
+                                                }}
+                                                className="w-full btn-neon py-4 flex items-center justify-center gap-3 mt-8"
+                                            >
+                                                <Zap className="w-5 h-5 fill-current" />
+                                                <span className="font-black text-sm tracking-[0.2em] uppercase">Generate Secure Code</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8 lg:p-12 text-center relative overflow-hidden animate-in fade-in zoom-in-95">
+                                            <div className="absolute inset-0 bg-[linear-gradient(to_right,#8b5cf612_1px,transparent_1px),linear-gradient(to_bottom,#8b5cf612_1px,transparent_1px)] bg-[size:40px_40px] -z-10" />
+                                            <h4 className="text-xs font-black text-primary uppercase tracking-[0.4em] mb-4">Room Initialized</h4>
+
+                                            <div className="flex justify-center mb-6">
+                                                <div className="bg-black/80 border border-primary/30 rounded-xl px-8 py-6 shadow-glow-neon select-none">
+                                                    <span className="font-mono text-4xl md:text-5xl font-black text-white tracking-[0.2em]">
+                                                        {roomCode.slice(0, 4)}<span className="text-primary/50 mx-2">-</span>{roomCode.slice(4)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-8">
+                                                Share this code with up to {roomConfig.users - 1} opponents to start.
+                                            </p>
+
+                                            <div className="flex gap-4">
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(roomCode);
+                                                        toast.success("Room Code copied to clipboard!");
+                                                    }}
+                                                    className="flex-1 border py-3 border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-black uppercase tracking-[0.2em] text-xs transition-colors"
+                                                >
+                                                    Copy Code
+                                                </button>
+                                                <button
+                                                    onClick={() => navigate(`/arena/multiplayer/${roomCode}`)}
+                                                    className="flex-1 btn-neon py-3 font-black uppercase tracking-[0.2em] text-xs"
+                                                >
+                                                    Enter Lobby
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : isJoiningRoom ? (
+                                <div className="space-y-6">
+                                    <div className="bg-black/40 border border-white/5 rounded-2xl p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
+                                        <div className="flex items-center justify-between border-b border-primary/20 pb-4 mb-6">
+                                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">
+                                                Join Battle Room
+                                            </h4>
+                                            <button
+                                                onClick={() => {
+                                                    setIsJoiningRoom(false);
+                                                    setJoinRoomCode('');
+                                                }}
+                                                className="text-[10px] font-black text-muted-foreground hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1"
+                                            >
+                                                ← Back
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-5">
+                                            <div>
+                                                <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider mb-2">Access Code</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Enter 8-digit code..."
+                                                    value={joinRoomCode}
+                                                    onChange={(e) => setJoinRoomCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                                                    className="w-full bg-black/50 border border-white/10 rounded-lg p-4 font-mono text-center text-2xl font-black text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-inner tracking-[0.3em] transition-all"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                if (joinRoomCode.length === 8) {
+                                                    navigate(`/arena/multiplayer/${joinRoomCode}`);
+                                                } else {
+                                                    toast.error("Invalid Code: Must be exactly 8 digits.");
+                                                }
+                                            }}
+                                            className="w-full btn-neon py-4 flex items-center justify-center gap-3 mt-8"
+                                        >
+                                            <Users2 className="w-5 h-5 fill-current" />
+                                            <span className="font-black text-sm tracking-[0.2em] uppercase">Access Room</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : matchmakingModeId === 'multiplayer' ? (
+                                <div className="flex flex-col sm:flex-row gap-4 w-full animate-in fade-in">
+                                    <button
+                                        onClick={() => setIsJoiningRoom(true)}
+                                        className="w-full border py-4 border-primary/40 bg-primary/10 hover:bg-primary/20 hover:border-primary text-primary transition-all rounded-lg flex items-center justify-center gap-3 group"
+                                    >
+                                        <Users2 className="w-5 h-5" />
+                                        <span className="font-black text-sm tracking-[0.2em] uppercase">Join Room</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setIsCreatingRoom(true)}
+                                        className="w-full btn-neon py-4 flex items-center justify-center gap-3 group"
+                                    >
+                                        <Zap className="w-5 h-5 fill-current animate-pulse" />
+                                        <span className="font-black text-sm tracking-[0.2em] uppercase">Create Room</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleStartMatchmaking}
+                                    disabled={isMatchmaking}
+                                    className="w-full btn-neon py-5 flex items-center justify-center gap-4 group disabled:opacity-50"
+                                >
+                                    <Zap className={`w-5 h-5 fill-current ${isMatchmaking ? 'animate-spin' : 'animate-pulse'}`} />
+                                    <span className="font-black text-lg tracking-[0.3em]">
+                                        {isMatchmaking ? "MATCHMAKING..." : "START MATCHMAKING"}
+                                    </span>
+                                </button>
+                            )}
                         </motion.div>
                     </motion.div>
                 )}
