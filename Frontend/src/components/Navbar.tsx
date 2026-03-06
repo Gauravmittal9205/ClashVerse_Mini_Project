@@ -92,7 +92,7 @@ const userNavItems: NavItem[] = [
     submenu: [
       { label: "Coding Arena", icon: Code, href: "/arena/coding" },
       { label: "GD Arena", icon: MessageSquare, href: "#message" },
-      { label: "Debate Arena", icon: Mic, href: "#mic" },
+      { label: "Debate Arena", icon: Mic, href: "/arena/debate" },
       { label: "Quiz Arena", icon: Brain, href: "#brain" },
       { label: "1v1 Duel", icon: Zap, href: "#duel" },
     ],
