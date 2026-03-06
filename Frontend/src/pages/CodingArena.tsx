@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -104,6 +104,16 @@ const CodingArena = () => {
     const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'found' | 'failed'>('idle');
     const [abortController, setAbortController] = useState<AbortController | null>(null);
     const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const location = useLocation();
+
+    // Auto-trigger matchmaking if we came from a 'Rematch' request
+    useEffect(() => {
+        if (location.state?.autoMatchmake && user) {
+            handleStartMatchmaking();
+            // Clear the state so it doesn't loop if the user refreshes
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state, user]);
 
     const handleStartMatchmaking = async () => {
         if (!user) {
@@ -134,6 +144,22 @@ const CodingArena = () => {
         const timer = countdownTimerRef.current;
 
         try {
+            // Pre-check if user exists in DB
+            const checkRes = await fetch(`http://localhost:8081/api/auth/me/${user.uid}`);
+            if (!checkRes.ok) {
+                // If not found, try to sync one more time manually
+                const idToken = await user.getIdToken(true); // force-refresh token
+                const syncRes = await fetch(`http://localhost:8081/api/auth/sync`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ idToken })
+                });
+                if (!syncRes.ok) {
+                    const syncErr = await syncRes.text();
+                    throw new Error(`Sync failed: ${syncErr}`);
+                }
+            }
+
             // API call to initiate battle
             const response = await fetch(`http://localhost:8081/api/arena/initiate?firebaseUid=${user.uid}`, {
                 method: "POST",
@@ -190,14 +216,16 @@ const CodingArena = () => {
                     }, 2000);
                 }
             } else {
+                const errorData = await response.text();
                 clearInterval(timer);
                 setSearchStatus('failed');
+                toast.error(errorData || "Matchmaking failed. Please try again.");
             }
         } catch (error: any) {
             clearInterval(timer);
             if (error.name !== 'AbortError') {
                 setSearchStatus('failed');
-                toast.error("Could not connect to server.");
+                toast.error("Network error. Please ensure backend is running.");
             }
         }
     };

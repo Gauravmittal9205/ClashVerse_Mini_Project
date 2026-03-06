@@ -6,7 +6,8 @@ public class SubmissionRequest {
     private String code;
     private String language;
 
-    // Getters and Setters
+    public SubmissionRequest() {}
+
     public Long getBattleId() { return battleId; }
     public void setBattleId(Long battleId) { this.battleId = battleId; }
 

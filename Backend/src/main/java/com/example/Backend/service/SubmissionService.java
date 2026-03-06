@@ -7,6 +7,8 @@ import com.example.Backend.model.User;
 import com.example.Backend.repository.BattleRepository;
 import com.example.Backend.repository.SubmissionRepository;
 import com.example.Backend.repository.UserRepository;
+import com.example.Backend.dto.JudgeResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,11 @@ public class SubmissionService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private CodeExecutorService codeExecutorService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     public Submission submitCode(Long battleId, String firebaseUid, String code, String language) {
         Battle battle = battleRepository.findById(battleId)
                 .orElseThrow(() -> new RuntimeException("Battle not found"));
@@ -40,16 +47,27 @@ public class SubmissionService {
         submission.setCode(code);
         submission.setLanguage(language);
         submission.setStatus("PENDING");
-        submission = submissionRepository.save(submission);
+        Submission finalSubmission = submissionRepository.save(submission);
 
-        // Simple Mock Judge Logic
-        boolean passed = mockJudge(code);
+        // Real Judge Logic using Docker
+        String testCasesJson = battle.getProblem().getTestCases();
+        if (testCasesJson == null || testCasesJson.isEmpty() || testCasesJson.equals("[]")) {
+            throw new RuntimeException("This problem has no test cases configured.");
+        }
+
+        JudgeResult result = codeExecutorService.executeCode(code, language, testCasesJson);
         
-        if (passed) {
-            submission.setStatus("PASSED");
-            submission.setRuntime(new Random().nextInt(50) + "ms");
-            submission.setMemory(new Random().nextInt(100) + "MB");
-            
+        try {
+            finalSubmission.setResultJson(objectMapper.writeValueAsString(result));
+        } catch (Exception e) {
+            finalSubmission.setResultJson("{}");
+        }
+
+        finalSubmission.setStatus(result.getStatus());
+        finalSubmission.setRuntime(result.getRuntime());
+        finalSubmission.setMemory(result.getMemory());
+        
+        if ("PASSED".equals(result.getStatus())) {
             // If winner not already declared, declare this user as winner
             if (battle.getStatus().equals("ACTIVE") && battle.getWinnerId() == null) {
                 battle.setWinnerId(user.getFirebaseUid());
@@ -60,8 +78,6 @@ public class SubmissionService {
                 messagingTemplate.convertAndSend("/topic/battle/" + battleId, 
                     new BattleEvent("BATTLE_END", user.getFirebaseUid(), user.getDisplayName() + " won the battle!"));
             }
-        } else {
-            submission.setStatus("FAILED");
         }
 
         submissionRepository.save(submission);
@@ -73,8 +89,15 @@ public class SubmissionService {
         return submission;
     }
 
-    private boolean mockJudge(String code) {
-        // Simple logic: if code contains "return", it's likely a valid-ish attempt for mock
-        return code != null && code.contains("return");
+    public JudgeResult runCode(Long battleId, String code, String language) {
+        Battle battle = battleRepository.findById(battleId)
+                .orElseThrow(() -> new RuntimeException("Battle not found"));
+
+        String testCasesJson = battle.getProblem().getTestCases();
+        if (testCasesJson == null || testCasesJson.isEmpty() || testCasesJson.equals("[]")) {
+            throw new RuntimeException("This problem has no test cases configured.");
+        }
+
+        return codeExecutorService.executeCode(code, language, testCasesJson);
     }
 }
