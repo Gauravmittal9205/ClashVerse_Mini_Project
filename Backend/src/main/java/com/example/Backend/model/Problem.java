@@ -25,7 +25,14 @@ public class Problem {
 
     private String difficulty; // Easy, Medium, Hard
 
+    @Column(columnDefinition = "TEXT")
     private String category; // Arrays, DP, etc.
+
+    @Column(columnDefinition = "TEXT")
+    private String testCases; // JSON string of [{input: "", output: ""}]
+
+    @Column(columnDefinition = "TEXT")
+    private String boilerplates; // JSON string of {lang: "code"}
 
     public Problem() {}
 
@@ -59,4 +66,10 @@ public class Problem {
 
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+
+    public String getTestCases() { return testCases; }
+    public void setTestCases(String testCases) { this.testCases = testCases; }
+
+    public String getBoilerplates() { return boilerplates; }
+    public void setBoilerplates(String boilerplates) { this.boilerplates = boilerplates; }
 }

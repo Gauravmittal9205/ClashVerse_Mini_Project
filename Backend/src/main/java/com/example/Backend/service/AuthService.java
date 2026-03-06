@@ -15,7 +15,8 @@ import java.time.Instant;
 /**
  * Core auth service:
  * 1. Verifies the Firebase ID token using Firebase Admin SDK
- * 2. Upserts the user record in PostgreSQL (creates if first login, updates on subsequent logins)
+ * 2. Upserts the user record in PostgreSQL (creates if first login, updates on
+ * subsequent logins)
  * 3. Returns a UserResponse DTO
  */
 @Service
@@ -40,15 +41,15 @@ public class AuthService {
         // ── Step 1: Verify the token with Firebase Admin ────────────────────────
         FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
 
-        String uid          = decodedToken.getUid();
-        String email        = decodedToken.getEmail();
-        String displayName  = decodedToken.getName();
-        String photoUrl     = decodedToken.getPicture();
+        String uid = decodedToken.getUid();
+        String email = decodedToken.getEmail();
+        String displayName = decodedToken.getName();
+        String photoUrl = decodedToken.getPicture();
 
         // Determine provider (sign_in_provider claim Google sets)
         String signInProvider = (String) decodedToken.getClaims()
                 .getOrDefault("firebase", java.util.Map.of())
-                .toString();   // raw string fallback
+                .toString(); // raw string fallback
 
         // Try a cleaner approach via the nested map
         Object firebaseClaim = decodedToken.getClaims().get("firebase");
@@ -59,7 +60,7 @@ public class AuthService {
                 provider = switch (providerObj.toString()) {
                     case "google.com" -> "GOOGLE";
                     case "github.com" -> "GITHUB";
-                    default           -> "EMAIL_PASSWORD";
+                    default -> "EMAIL_PASSWORD";
                 };
             }
         }
@@ -68,12 +69,14 @@ public class AuthService {
 
         // ── Step 2: Upsert into PostgreSQL ─────────────────────────────────────
         final String finalProvider = provider;
-        // Email/password users may not have a display name in Firebase — fallback to email prefix
+        // Email/password users may not have a display name in Firebase — fallback to
+        // email prefix
         final String finalDisplayName = (displayName != null && !displayName.isBlank())
                 ? displayName
                 : (email != null ? email.split("@")[0] : uid.substring(0, 8));
         final String finalPhotoUrl = photoUrl;
 
+        // Primary lookup: by Firebase UID (normal path)
         User user = userRepository.findByFirebaseUid(uid)
                 .map(existing -> {
                     // Update mutable fields on every login
@@ -82,6 +85,20 @@ public class AuthService {
                     existing.setLastLoginAt(Instant.now());
                     return existing;
                 })
+                // Fallback: same email exists but under a different/missing Firebase UID
+                // (e.g. manually inserted row, provider migration, etc.)
+                // Adopt the existing record so we don't violate the email unique constraint.
+                .or(() -> userRepository.findByEmail(email)
+                        .map(existing -> {
+                            log.warn("Firebase UID mismatch for email={}: updating UID from {} to {}",
+                                    email, existing.getFirebaseUid(), uid);
+                            existing.setFirebaseUid(uid);
+                            existing.setDisplayName(finalDisplayName);
+                            existing.setPhotoUrl(finalPhotoUrl);
+                            existing.setLastLoginAt(Instant.now());
+                            existing.setProvider(finalProvider);
+                            return existing;
+                        }))
                 .orElseGet(() -> new User(uid, finalDisplayName, email, finalProvider, finalPhotoUrl));
 
         user = userRepository.save(user);
