@@ -52,7 +52,7 @@ const publicNavItems: NavItem[] = [
     icon: Swords,
     submenu: [
       { label: "Coding Preview", icon: Code, href: "#code-preview" },
-      { label: "GD Preview", icon: MessageSquare, href: "#gd-preview" },
+      { label: "GD Preview", icon: MessageSquare, href: "/arena/gd" },
       { label: "Debate Preview", icon: Mic, href: "#debate-preview" },
       { label: "Quiz Preview", icon: Brain, href: "#quiz-preview" },
     ],

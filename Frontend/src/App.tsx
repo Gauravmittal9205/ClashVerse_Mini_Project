@@ -11,28 +11,33 @@ import DebateRoom from "./pages/DebateRoom";
 import BattleRoom from "./pages/BattleRoom";
 import MultiplayerRoom from "./pages/MultiplayerRoom";
 import Profile from "./pages/Profile";
+import GDModule from "./components/GDModule";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/arena/coding" element={<CodingArena />} />
-          <Route path="/arena/debate" element={<DebateArena />} />
-          <Route path="/arena/debate/:roomId" element={<DebateRoom />} />
-          <Route path="/arena/battle/:battleId" element={<BattleRoom />} />
-          <Route path="/arena/multiplayer/:roomCode" element={<MultiplayerRoom />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/arena/coding" element={<CodingArena />} />
+            <Route path="/arena/debate" element={<DebateArena />} />
+            <Route path="/arena/debate/:roomId" element={<DebateRoom />} />
+            <Route path="/arena/gd" element={<GDModule />} />
+            <Route path="/arena/battle/:battleId" element={<BattleRoom />} />
+            <Route path="/arena/multiplayer/:roomCode" element={<MultiplayerRoom />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
